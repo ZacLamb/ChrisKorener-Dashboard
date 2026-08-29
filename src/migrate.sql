@@ -49,6 +49,14 @@ CREATE TABLE IF NOT EXISTS summaries (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS reply_suggestions (
+  conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  suggestions JSONB,
+  model TEXT,
+  message_count INTEGER,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS sync_log (
   id SERIAL PRIMARY KEY,
   started_at TIMESTAMPTZ DEFAULT now(),

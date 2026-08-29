@@ -153,8 +153,31 @@ body {
 .msg.inbound { background: var(--panel-2); align-self: flex-start; border-bottom-left-radius: 2px; }
 .msg.outbound { background: #2A4A5E; align-self: flex-end; border-bottom-right-radius: 2px; }
 .msg-time { display: block; font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 4px; }
-.reply-box { border-top: 1px solid var(--line); padding: 12px 20px; display: flex; gap: 10px; }
-.reply-box textarea {
+.suggestions-box { padding: 10px 20px 0; border-top: 1px solid var(--line); }
+.suggestions-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.suggestion-cards { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
+.suggestion-card {
+  flex: 1 0 220px;
+  max-width: 280px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.suggestion-card:hover { border-color: var(--accent-info); background: #232838; }
+.suggestion-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--accent-info);
+  margin-bottom: 5px;
+}
+.suggestion-text { font-size: 12.5px; line-height: 1.4; color: var(--paper); }
+
+.reply-box { border-top: 1px solid var(--line); padding: 12px 20px; display: flex; gap: 10px; }.reply-box textarea {
   flex: 1;
   background: var(--panel-2);
   border: 1px solid var(--line);

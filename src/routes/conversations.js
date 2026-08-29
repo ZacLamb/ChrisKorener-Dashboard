@@ -1,7 +1,7 @@
 import express from "express";
 import { pool } from "../db.js";
 import * as ghl from "../ghlClient.js";
-import { summarizeThread } from "../ai.js";
+import { summarizeThread, suggestReplies } from "../ai.js";
 
 const router = express.Router();
 
@@ -78,10 +78,12 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
   const convRes = await pool.query(
     `SELECT c.*, ct.email, ct.phone, ct.tags,
-            s.summary, s.sentiment, s.action_needed, s.updated_at AS summarized_at
+            s.summary, s.sentiment, s.action_needed, s.updated_at AS summarized_at,
+            rs.suggestions, rs.updated_at AS suggestions_updated_at
      FROM conversations c
      LEFT JOIN contacts ct ON ct.id = c.contact_id
      LEFT JOIN summaries s ON s.conversation_id = c.id
+     LEFT JOIN reply_suggestions rs ON rs.conversation_id = c.id
      WHERE c.id = $1`,
     [id]
   );
@@ -127,6 +129,41 @@ router.post("/:id/summarize", async (req, res) => {
   } catch (err) {
     console.error("Summarize failed:", err.message);
     res.status(500).json({ error: "Summarization failed", detail: err.message });
+  }
+});
+
+// POST /api/conversations/:id/suggest-replies — generate 2-3 ready-to-send reply options
+router.post("/:id/suggest-replies", async (req, res) => {
+  const { id } = req.params;
+  const convRes = await pool.query(`SELECT * FROM conversations WHERE id = $1`, [id]);
+  if (!convRes.rows.length) return res.status(404).json({ error: "Not found" });
+  const conv = convRes.rows[0];
+
+  const msgRes = await pool.query(
+    `SELECT * FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`,
+    [id]
+  );
+  if (!msgRes.rows.length) return res.status(400).json({ error: "No messages to reply to yet" });
+
+  try {
+    const suggestions = await suggestReplies({
+      contactName: conv.contact_name,
+      channel: conv.channel,
+      messages: msgRes.rows,
+    });
+
+    await pool.query(
+      `INSERT INTO reply_suggestions (conversation_id, suggestions, model, message_count, updated_at)
+       VALUES ($1,$2,$3,$4, now())
+       ON CONFLICT (conversation_id) DO UPDATE SET
+         suggestions = EXCLUDED.suggestions, model = EXCLUDED.model,
+         message_count = EXCLUDED.message_count, updated_at = now()`,
+      [id, JSON.stringify(suggestions), process.env.AI_PROVIDER, msgRes.rows.length]
+    );
+    res.json({ suggestions });
+  } catch (err) {
+    console.error("Suggest-replies failed:", err.message);
+    res.status(500).json({ error: "Couldn't generate suggestions", detail: err.message });
   }
 });
 

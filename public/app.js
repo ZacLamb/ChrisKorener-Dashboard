@@ -55,8 +55,10 @@ async function loadFilters() {
   const opts = await api("/conversations/filters");
   const fill = (sel, values, placeholder) => {
     const el = $(sel);
+    const current = el.value;
     el.innerHTML = `<option value="">${placeholder}</option>` +
       values.map((v) => `<option value="${v}">${v}</option>`).join("");
+    if (current && values.includes(current)) el.value = current;
   };
   fill("#fChannel", opts.channels, "All channels");
   fill("#fAssignee", opts.assignees, "Anyone");
@@ -130,6 +132,61 @@ async function openThread(id) {
   renderThreadDetail(data);
 }
 
+function renderSuggestions(suggestions) {
+  if (!suggestions || !suggestions.length) {
+    return `<button class="btn btn-ghost btn-small" id="suggestBtn" style="margin:0">Suggest replies</button>`;
+  }
+  return `
+    <div class="suggestions-head">
+      <span class="mini-title" style="margin:0">Suggested replies</span>
+      <button class="btn-icon" id="regenSuggestBtn" title="Regenerate">↻</button>
+    </div>
+    <div class="suggestion-cards">
+      ${suggestions.map((s, i) => `
+        <div class="suggestion-card" data-idx="${i}">
+          <div class="suggestion-label">${escapeHtml(s.label || "Option")}</div>
+          <div class="suggestion-text">${escapeHtml(s.message || "")}</div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function bindSuggestionsBox(conversationId) {
+  const box = $("#suggestionsBox");
+  if (!box) return;
+
+  const suggestBtn = $("#suggestBtn") || $("#regenSuggestBtn");
+  if (suggestBtn) {
+    suggestBtn.addEventListener("click", async () => {
+      const original = suggestBtn.textContent;
+      suggestBtn.textContent = suggestBtn.id === "regenSuggestBtn" ? "↻" : "Thinking…";
+      suggestBtn.disabled = true;
+      try {
+        const r = await api(`/conversations/${conversationId}/suggest-replies`, { method: "POST" });
+        box.innerHTML = renderSuggestions(r.suggestions);
+        bindSuggestionsBox(conversationId);
+      } catch (err) {
+        alert("Couldn't generate suggestions: " + err.message);
+        suggestBtn.textContent = original;
+        suggestBtn.disabled = false;
+      }
+    });
+  }
+
+  box.querySelectorAll(".suggestion-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const idx = Number(card.dataset.idx);
+      const textEl = card.querySelector(".suggestion-text");
+      const replyBox = $("#replyText");
+      if (replyBox && textEl) {
+        replyBox.value = textEl.textContent;
+        replyBox.focus();
+      }
+    });
+  });
+}
+
 function renderThreadDetail(data) {
   const c = data.conversation;
   threadDetail.innerHTML = `
@@ -152,6 +209,9 @@ function renderThreadDetail(data) {
         </div>
       `).join("") || `<div class="empty-state">No messages synced for this thread yet.</div>`}
     </div>
+    <div class="suggestions-box" id="suggestionsBox">
+      ${renderSuggestions(c.suggestions)}
+    </div>
     <div class="reply-box">
       <textarea id="replyText" placeholder="Type a reply — sends as ${c.channel || "the thread's channel"}…"></textarea>
       <button class="btn btn-primary" id="sendReplyBtn">Send</button>
@@ -173,6 +233,8 @@ function renderThreadDetail(data) {
       alert("Couldn't summarize: " + err.message);
     }
   });
+
+  bindSuggestionsBox(c.id);
 
   $("#sendReplyBtn").addEventListener("click", async () => {
     const text = $("#replyText").value.trim();
@@ -230,6 +292,7 @@ $("#syncBtn").addEventListener("click", async () => {
   try {
     const r = await api("/sync", { method: "POST", body: JSON.stringify({}) });
     await loadConversations();
+    await loadFilters();
     btn.textContent = `Synced ${r.convosSynced}`;
   } catch (err) {
     alert("Sync failed: " + err.message);
@@ -274,6 +337,7 @@ async function pollReport() {
     } else {
       clearTimeout(reportPollTimer);
       loadConversations();
+      loadFilters();
     }
   } catch (err) {
     $("#reportBody").textContent = "Couldn't check report status: " + err.message;

@@ -93,4 +93,33 @@ Write a short executive overview (5-8 sentences, plain text, no markdown headers
   return complete(prompt, 500);
 }
 
-export default { summarizeThread, buildOverviewReport };
+/**
+ * Propose 2-3 ready-to-send reply options for a thread, each taking a
+ * genuinely different approach (not just reworded restatements).
+ */
+export async function suggestReplies({ contactName, channel, messages }) {
+  const transcript = messages
+    .map((m) => `${m.direction === "inbound" ? "Contact" : "Us"}: ${m.body || ""}`)
+    .join("\n")
+    .slice(0, 6000);
+
+  const prompt = `You're helping a small business owner reply to a ${channel} conversation with "${contactName || "a contact"}".
+Read the transcript below and draft exactly 3 different reply options they could send right now — each a complete, ready-to-send message in a direct, friendly small-business voice (no corporate filler, no "I hope this finds you well"). Make the 3 options genuinely different approaches (for example: a quick direct answer, a more detailed/helpful answer, and one that asks a clarifying question or proposes a next step) — not three rewordings of the same reply. If the thread doesn't need a reply at all (e.g. it already ended cleanly), say so as one of the options instead of inventing one.
+
+Respond with ONLY a JSON object, no markdown, no preamble:
+{"suggestions": [{"label": "2-4 word label", "message": "full reply text"}, {"label": "...", "message": "..."}, {"label": "...", "message": "..."}]}
+
+Transcript:
+${transcript}`;
+
+  const raw = await complete(prompt, 700);
+  try {
+    const clean = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(clean);
+    return Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3) : [];
+  } catch {
+    return [{ label: "Suggestion", message: raw.slice(0, 500) }];
+  }
+}
+
+export default { summarizeThread, buildOverviewReport, suggestReplies };
