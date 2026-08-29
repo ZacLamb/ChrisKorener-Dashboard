@@ -63,5 +63,12 @@ CREATE TABLE IF NOT EXISTS reports (
   id SERIAL PRIMARY KEY,
   overview TEXT,
   stats JSONB,
+  status TEXT DEFAULT 'done',
+  error TEXT,
+  resummarized INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+-- Safe to re-run: adds these columns if this table already existed from an earlier deploy.
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'done';
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS error TEXT;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS resummarized INTEGER DEFAULT 0;

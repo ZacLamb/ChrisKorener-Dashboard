@@ -240,23 +240,61 @@ $("#syncBtn").addEventListener("click", async () => {
   }
 });
 
+let reportPollTimer = null;
+
+function renderReport(r) {
+  if (!r) {
+    $("#reportBody").textContent = "No report yet.";
+    return;
+  }
+  if (r.status === "running") {
+    $("#reportBody").textContent = "Summarizing threads and building the overview — this can take a few minutes on a large account. Feel free to close this and check back; it keeps running in the background.";
+    return;
+  }
+  if (r.status === "error") {
+    $("#reportBody").textContent = "Report generation failed: " + (r.error || "unknown error");
+    return;
+  }
+  const stats = r.stats || {};
+  $("#reportBody").innerHTML = `
+    <div style="margin-bottom:14px; font-family:var(--mono); font-size:12px; color:var(--muted)">
+      ${stats.total_conversations ?? "–"} total · ${stats.unread_conversations ?? "–"} unread · ${stats.needs_action ?? "–"} need a reply
+      ${r.resummarized ? ` · ${r.resummarized} threads freshly summarized` : ""}
+    </div>
+    ${escapeHtml(r.overview || "")}
+  `;
+}
+
+async function pollReport() {
+  try {
+    const r = await api("/report/latest");
+    renderReport(r);
+    if (r && r.status === "running") {
+      reportPollTimer = setTimeout(pollReport, 3000);
+    } else {
+      clearTimeout(reportPollTimer);
+      loadConversations();
+    }
+  } catch (err) {
+    $("#reportBody").textContent = "Couldn't check report status: " + err.message;
+  }
+}
+
 $("#reportBtn").addEventListener("click", async () => {
   $("#reportModal").classList.remove("hidden");
-  $("#reportBody").textContent = "Generating overview — summarizing new threads first, this can take a minute…";
+  $("#reportBody").textContent = "Starting report…";
+  clearTimeout(reportPollTimer);
   try {
-    const r = await api("/report", { method: "POST", body: JSON.stringify({}) });
-    $("#reportBody").innerHTML = `
-      <div style="margin-bottom:14px; font-family:var(--mono); font-size:12px; color:var(--muted)">
-        ${r.stats.total_conversations} total · ${r.stats.unread_conversations} unread · ${r.stats.needs_action} need a reply
-      </div>
-      ${escapeHtml(r.overview)}
-    `;
-    loadConversations();
+    await api("/report", { method: "POST", body: JSON.stringify({}) });
+    pollReport();
   } catch (err) {
-    $("#reportBody").textContent = "Report generation failed: " + err.message;
+    $("#reportBody").textContent = "Couldn't start report: " + err.message;
   }
 });
-$("#closeReport").addEventListener("click", () => $("#reportModal").classList.add("hidden"));
+$("#closeReport").addEventListener("click", () => {
+  $("#reportModal").classList.add("hidden");
+  clearTimeout(reportPollTimer);
+});
 
 // ---------- Init ----------
 (async function init() {
