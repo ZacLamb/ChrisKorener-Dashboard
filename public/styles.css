@@ -125,8 +125,9 @@ body {
 .thread-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .thread-name { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thread-time { font-family: var(--mono); font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
-.thread-snippet { color: var(--muted); font-size: 12.5px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-summary { color: #B7C4D6; font-size: 12px; margin-top: 5px; line-height: 1.4; }
+.thread-snippet { color: var(--muted); font-size: 12.5px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: anywhere; }
+.thread-summary { color: #B7C4D6; font-size: 12px; margin-top: 5px; line-height: 1.4; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .thread-tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
 .tag-chip { font-family: var(--mono); font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: var(--panel-2); color: var(--muted); }
 .tag-chip.alert { background: rgba(255,107,74,.15); color: var(--accent-alert); }
@@ -146,10 +147,11 @@ body {
   border-radius: 6px;
   font-size: 12.5px;
   color: #C6CEDB;
+  overflow-wrap: anywhere;
 }
 .detail-summary-box.alert { border-left-color: var(--accent-alert); }
 .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-.msg { max-width: 72%; padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; }
+.msg { max-width: min(72%, 620px); padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
 .msg.inbound { background: var(--panel-2); align-self: flex-start; border-bottom-left-radius: 2px; }
 .msg.outbound { background: #2A4A5E; align-self: flex-end; border-bottom-right-radius: 2px; }
 .msg-time { display: block; font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 4px; }
@@ -175,7 +177,7 @@ body {
   color: var(--accent-info);
   margin-bottom: 5px;
 }
-.suggestion-text { font-size: 12.5px; line-height: 1.4; color: var(--paper); }
+.suggestion-text { font-size: 12.5px; line-height: 1.4; color: var(--paper); overflow-wrap: anywhere; white-space: pre-wrap; }
 
 .reply-box { border-top: 1px solid var(--line); padding: 12px 20px; display: flex; gap: 10px; }.reply-box textarea {
   flex: 1;
@@ -198,7 +200,7 @@ body {
 .modal.hidden { display: none; }
 .modal-card { width: 560px; max-width: 90vw; max-height: 80vh; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; }
 .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); font-family: var(--mono); font-weight: 600; letter-spacing: .04em; }
-.modal-body { padding: 18px; overflow-y: auto; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+.modal-body { padding: 18px; overflow-y: auto; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* scrollbars */
 ::-webkit-scrollbar { width: 8px; }

@@ -4,6 +4,14 @@ dotenv.config();
 
 const PROVIDER = (process.env.AI_PROVIDER || "anthropic").toLowerCase();
 
+// Drip/marketing emails tend to repeat the same unsubscribe footer on
+// every message — strip it before it eats context and distracts the model.
+function cleanBody(body) {
+  if (!body) return "";
+  const footerMarker = /-?\s*(chris|team)?\s*if you no longer wish to receive these emails[\s\S]*/i;
+  return body.replace(footerMarker, "").trim();
+}
+
 async function callAnthropic(prompt, maxTokens = 400) {
   const { data } = await axios.post(
     "https://api.anthropic.com/v1/messages",
@@ -54,7 +62,7 @@ async function complete(prompt, maxTokens = 400) {
  */
 export async function summarizeThread({ contactName, channel, messages }) {
   const transcript = messages
-    .map((m) => `${m.direction === "inbound" ? "Contact" : "Us"}: ${m.body || ""}`)
+    .map((m) => `${m.direction === "inbound" ? "Contact" : "Us"}: ${cleanBody(m.body)}`)
     .join("\n")
     .slice(0, 6000); // keep token cost low
 
@@ -99,7 +107,7 @@ Write a short executive overview (5-8 sentences, plain text, no markdown headers
  */
 export async function suggestReplies({ contactName, channel, messages }) {
   const transcript = messages
-    .map((m) => `${m.direction === "inbound" ? "Contact" : "Us"}: ${m.body || ""}`)
+    .map((m) => `${m.direction === "inbound" ? "Contact" : "Us"}: ${cleanBody(m.body)}`)
     .join("\n")
     .slice(0, 6000);
 

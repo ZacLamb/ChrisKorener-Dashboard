@@ -92,7 +92,7 @@ function renderThreadList() {
           <span class="thread-name">${escapeHtml(c.contact_name || "Unknown")}</span>
           <span class="thread-time">${timeAgo(c.last_message_at)}</span>
         </div>
-        <div class="thread-snippet">${escapeHtml(c.last_message_body || "")}</div>
+        <div class="thread-snippet">${escapeHtml(cleanBody(c.last_message_body))}</div>
         ${c.summary ? `<div class="thread-summary">${escapeHtml(c.summary)}</div>` : ""}
         <div class="thread-tags">
           <span class="tag-chip">${c.channel || "?"}</span>
@@ -204,7 +204,7 @@ function renderThreadDetail(data) {
     <div class="messages" id="messagesPane">
       ${data.messages.map((m) => `
         <div class="msg ${m.direction === "inbound" ? "inbound" : "outbound"}">
-          ${escapeHtml(m.body || "")}
+          ${escapeHtml(cleanBody(m.body))}
           <span class="msg-time">${new Date(m.created_at).toLocaleString()}</span>
         </div>
       `).join("") || `<div class="empty-state">No messages synced for this thread yet.</div>`}
@@ -261,6 +261,18 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Many of these are auto-drip emails that repeat the same unsubscribe
+// footer/link on every single message — strip it for display so threads
+// aren't dominated by boilerplate. The raw body is untouched in the DB.
+function cleanBody(body) {
+  if (!body) return "";
+  const footerMarker = /-?\s*(chris|team)?\s*if you no longer wish to receive these emails[\s\S]*/i;
+  let clean = body.replace(footerMarker, "").trim();
+  // Fallback: strip any bare tracking/unsubscribe URL even without the sentence above.
+  clean = clean.replace(/https?:\/\/\S+/g, (url) => (url.length > 60 ? "[link]" : url));
+  return clean.trim();
 }
 
 // ---------- Filter bindings ----------
