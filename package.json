@@ -1,0 +1,22 @@
+{
+  "name": "ghl-conversation-dashboard",
+  "version": "1.0.0",
+  "description": "Organizational dashboard for a GHL sub-account, built strictly from Conversations data — thread summaries, one-click reply, and analytics.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node src/migrate.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

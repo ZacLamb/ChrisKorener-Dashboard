@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dispatch — Conversation Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">DISPATCH</span>
+    </div>
+    <div class="stats-ticker" id="statsTicker">
+      <span class="stat"><b id="statTotal">–</b> threads</span>
+      <span class="stat stat-warn"><b id="statUnread">–</b> unread</span>
+      <span class="stat stat-alert"><b id="statAction">–</b> need reply</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="syncBtn" class="btn btn-ghost">Sync now</button>
+      <button id="reportBtn" class="btn btn-primary">Run report</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <aside class="filters">
+      <div class="filter-group">
+        <label>Search</label>
+        <input type="text" id="fSearch" placeholder="Name or message…" />
+      </div>
+      <div class="filter-group">
+        <label>Channel</label>
+        <select id="fChannel"><option value="">All channels</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Status</label>
+        <select id="fStatus">
+          <option value="">All</option>
+          <option value="unread">Unread only</option>
+          <option value="read">Read only</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Assigned to</label>
+        <select id="fAssignee"><option value="">Anyone</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Tag</label>
+        <select id="fTag"><option value="">Any tag</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Sort</label>
+        <select id="fSort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      <button id="clearFilters" class="btn btn-ghost btn-small">Clear filters</button>
+
+      <div class="analytics-mini" id="analyticsMini">
+        <div class="mini-title">By channel</div>
+        <div id="channelBars"></div>
+      </div>
+    </aside>
+
+    <main class="thread-list" id="threadList">
+      <div class="empty-state">Loading conversations…</div>
+    </main>
+
+    <section class="thread-detail" id="threadDetail">
+      <div class="empty-state">Select a conversation to see the full thread and reply.</div>
+    </section>
+
+  </div>
+</div>
+
+<div id="reportModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <span>Account overview</span>
+      <button id="closeReport" class="btn-icon">✕</button>
+    </div>
+    <div class="modal-body" id="reportBody">Generating…</div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
