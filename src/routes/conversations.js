@@ -7,7 +7,7 @@ const router = express.Router();
 
 // GET /api/conversations — list with filters
 router.get("/", async (req, res) => {
-  const { channel, assignedTo, tag, search, status, dateFrom, dateTo, sort } = req.query;
+  const { channel, assignedTo, tag, search, status, priority, dateFrom, dateTo, sort } = req.query;
   const clauses = [];
   const params = [];
   let i = 1;
@@ -22,6 +22,10 @@ router.get("/", async (req, res) => {
   }
   if (status === "unread") clauses.push(`c.unread_count > 0`);
   if (status === "read") clauses.push(`c.unread_count = 0`);
+  if (priority) {
+    clauses.push(`s.priority = $${i++}`);
+    params.push(priority);
+  }
   if (search) {
     clauses.push(`(c.contact_name ILIKE $${i} OR c.last_message_body ILIKE $${i})`);
     params.push(`%${search}%`);
@@ -41,13 +45,22 @@ router.get("/", async (req, res) => {
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  const orderBy = sort === "oldest" ? "c.last_message_at ASC" : "c.last_message_at DESC";
+
+  // Default sort is priority-first — that's the point of the dashboard:
+  // urgent threads surface at the very top, then high, normal, low, and
+  // untriaged (no summary yet) threads sit alongside "normal" rather than
+  // getting buried or jumping the queue.
+  const PRIORITY_ORDER = `CASE s.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 WHEN 'low' THEN 3 ELSE 2 END`;
+  let orderBy;
+  if (sort === "oldest") orderBy = "c.last_message_at ASC";
+  else if (sort === "newest") orderBy = "c.last_message_at DESC";
+  else orderBy = `${PRIORITY_ORDER} ASC, c.last_message_at DESC`;
 
   const { rows } = await pool.query(
     `SELECT c.id, c.ghl_conversation_id, c.contact_name, c.channel, c.unread_count,
             c.assigned_to, c.last_message_body, c.last_message_direction, c.last_message_at,
             ct.email, ct.phone, ct.tags,
-            s.summary, s.sentiment, s.action_needed
+            s.summary, s.sentiment, s.action_needed, s.priority, s.priority_reason
      FROM conversations c
      LEFT JOIN contacts ct ON ct.id = c.contact_id
      LEFT JOIN summaries s ON s.conversation_id = c.id
@@ -59,17 +72,19 @@ router.get("/", async (req, res) => {
   res.json(rows);
 });
 
-// GET /api/conversations/filters — distinct values for dropdowns
+// GET /api/conversations/filters — distinct values for dropdowns + priority counts
 router.get("/filters", async (_req, res) => {
-  const [channels, assignees, tags] = await Promise.all([
+  const [channels, assignees, tags, priorities] = await Promise.all([
     pool.query(`SELECT DISTINCT channel FROM conversations WHERE channel IS NOT NULL ORDER BY 1`),
     pool.query(`SELECT DISTINCT assigned_to FROM conversations WHERE assigned_to IS NOT NULL ORDER BY 1`),
     pool.query(`SELECT DISTINCT unnest(tags) AS tag FROM contacts ORDER BY 1`),
+    pool.query(`SELECT priority, count(*) AS count FROM summaries WHERE priority IS NOT NULL GROUP BY priority`),
   ]);
   res.json({
     channels: channels.rows.map((r) => r.channel),
     assignees: assignees.rows.map((r) => r.assigned_to),
     tags: tags.rows.map((r) => r.tag),
+    priorityCounts: priorities.rows.reduce((acc, r) => ({ ...acc, [r.priority]: Number(r.count) }), {}),
   });
 });
 
@@ -78,7 +93,7 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
   const convRes = await pool.query(
     `SELECT c.*, ct.email, ct.phone, ct.tags,
-            s.summary, s.sentiment, s.action_needed, s.updated_at AS summarized_at,
+            s.summary, s.sentiment, s.action_needed, s.priority, s.priority_reason, s.updated_at AS summarized_at,
             rs.suggestions, rs.updated_at AS suggestions_updated_at
      FROM conversations c
      LEFT JOIN contacts ct ON ct.id = c.contact_id
@@ -96,7 +111,7 @@ router.get("/:id", async (req, res) => {
   res.json({ conversation: convRes.rows[0], messages: msgRes.rows });
 });
 
-// POST /api/conversations/:id/summarize — force (re)compute AI summary
+// POST /api/conversations/:id/summarize — force (re)compute AI summary + priority
 router.post("/:id/summarize", async (req, res) => {
   const { id } = req.params;
   const convRes = await pool.query(`SELECT * FROM conversations WHERE id = $1`, [id]);
@@ -117,13 +132,14 @@ router.post("/:id/summarize", async (req, res) => {
     });
 
     await pool.query(
-      `INSERT INTO summaries (conversation_id, summary, sentiment, action_needed, model, summarized_message_count, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6, now())
+      `INSERT INTO summaries (conversation_id, summary, sentiment, action_needed, priority, priority_reason, model, summarized_message_count, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
        ON CONFLICT (conversation_id) DO UPDATE SET
          summary = EXCLUDED.summary, sentiment = EXCLUDED.sentiment,
-         action_needed = EXCLUDED.action_needed, model = EXCLUDED.model,
+         action_needed = EXCLUDED.action_needed, priority = EXCLUDED.priority,
+         priority_reason = EXCLUDED.priority_reason, model = EXCLUDED.model,
          summarized_message_count = EXCLUDED.summarized_message_count, updated_at = now()`,
-      [id, result.summary, result.sentiment, result.action_needed, process.env.AI_PROVIDER, msgRes.rows.length]
+      [id, result.summary, result.sentiment, result.action_needed, result.priority, result.priority_reason, process.env.AI_PROVIDER, msgRes.rows.length]
     );
     res.json(result);
   } catch (err) {

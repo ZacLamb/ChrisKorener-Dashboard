@@ -76,6 +76,22 @@ body {
   overflow-y: auto;
 }
 .filter-group { margin-bottom: 14px; }
+.priority-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.pill {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 5px 9px;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.pill.active { color: var(--paper); border-color: var(--paper); }
+.pill-urgent.active { background: rgba(255,107,74,.18); border-color: var(--accent-alert); color: var(--accent-alert); }
+.pill-high.active { background: rgba(232,184,75,.18); border-color: var(--accent-warn); color: var(--accent-warn); }
+.pill-normal.active { background: rgba(91,158,232,.18); border-color: var(--accent-info); color: var(--accent-info); }
+.pill-low.active { background: rgba(138,147,163,.18); border-color: var(--muted); color: var(--muted); }
 .filter-group label {
   display: block;
   font-family: var(--mono);
@@ -131,12 +147,19 @@ body {
 .thread-tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
 .tag-chip { font-family: var(--mono); font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: var(--panel-2); color: var(--muted); }
 .tag-chip.alert { background: rgba(255,107,74,.15); color: var(--accent-alert); }
+.priority-chip { font-family: var(--mono); font-size: 9.5px; padding: 2px 7px; border-radius: 4px; font-weight: 700; letter-spacing: .03em; }
+.priority-chip.urgent { background: rgba(255,107,74,.2); color: var(--accent-alert); }
+.priority-chip.high { background: rgba(232,184,75,.2); color: var(--accent-warn); }
+.priority-chip.normal { background: rgba(91,158,232,.15); color: var(--accent-info); }
+.priority-chip.low { background: var(--panel-2); color: var(--muted); }
+.thread-card.priority-urgent { background: linear-gradient(90deg, rgba(255,107,74,.06), transparent 40%); }
 .unread-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-info); flex-shrink: 0; margin-top: 4px; }
 
 /* ---------- Thread detail ---------- */
 .thread-detail { display: flex; flex-direction: column; min-width: 0; background: var(--panel); }
 .thread-detail .empty-state { margin: auto; color: var(--muted); font-size: 13px; }
 .detail-head { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.detail-head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .detail-head .name { font-size: 16px; font-weight: 700; }
 .detail-head .meta { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
 .detail-summary-box {

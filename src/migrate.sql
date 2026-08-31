@@ -44,10 +44,15 @@ CREATE TABLE IF NOT EXISTS summaries (
   summary TEXT,
   sentiment TEXT,
   action_needed BOOLEAN DEFAULT false,
+  priority TEXT,
+  priority_reason TEXT,
   model TEXT,
   summarized_message_count INTEGER,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+-- Safe to re-run: adds these if summaries already existed from an earlier deploy.
+ALTER TABLE summaries ADD COLUMN IF NOT EXISTS priority TEXT;
+ALTER TABLE summaries ADD COLUMN IF NOT EXISTS priority_reason TEXT;
 
 CREATE TABLE IF NOT EXISTS reply_suggestions (
   conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,

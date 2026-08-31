@@ -57,8 +57,9 @@ async function complete(prompt, maxTokens = 400) {
 }
 
 /**
- * Summarize a single conversation thread.
- * Returns { summary, sentiment, action_needed }
+ * Summarize a single conversation thread, and — the main thing this
+ * dashboard is for — triage it into a priority tier.
+ * Returns { summary, sentiment, action_needed, priority, priority_reason }
  */
 export async function summarizeThread({ contactName, channel, messages }) {
   const transcript = messages
@@ -66,24 +67,41 @@ export async function summarizeThread({ contactName, channel, messages }) {
     .join("\n")
     .slice(0, 6000); // keep token cost low
 
-  const prompt = `You are triaging a business's ${channel} conversation thread with a contact named "${contactName || "Unknown"}".
+  const prompt = `You are triaging a business's ${channel} conversation thread with a contact named "${contactName || "Unknown"}", to help the owner know what to respond to first.
 Read the transcript below and respond with ONLY a JSON object (no markdown, no preamble) with these exact keys:
-{"summary": "1-2 sentence plain-English synopsis of what's happening and where it stands", "sentiment": "positive" | "neutral" | "negative", "action_needed": true or false}
+{
+  "summary": "1-2 sentence plain-English synopsis of what's happening and where it stands",
+  "sentiment": "positive" | "neutral" | "negative",
+  "action_needed": true or false,
+  "priority": "urgent" | "high" | "normal" | "low",
+  "priority_reason": "under 8 words on why this priority"
+}
+
+Priority guide:
+- "urgent": time-sensitive, at risk of losing the customer, an explicit complaint, a cancellation/refund/billing issue, or someone directly asking to be contacted/called. Needs a reply today.
+- "high": a real open question or request from the contact that's waiting on a reply, no urgency signal but genuinely needs a response soon.
+- "normal": contact has replied or engaged but it's informational / no pressure to respond immediately.
+- "low": one-way traffic — a drip/marketing email with no reply from the contact, or the thread is already resolved/closed and needs nothing further.
 
 Transcript:
 ${transcript}`;
 
-  const raw = await complete(prompt, 300);
+  const raw = await complete(prompt, 350);
   try {
     const clean = raw.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
+    const priority = ["urgent", "high", "normal", "low"].includes(parsed.priority)
+      ? parsed.priority
+      : "normal";
     return {
       summary: parsed.summary || "",
       sentiment: parsed.sentiment || "neutral",
-      action_needed: !!parsed.action_needed,
+      action_needed: parsed.action_needed !== undefined ? !!parsed.action_needed : priority === "urgent" || priority === "high",
+      priority,
+      priority_reason: parsed.priority_reason || "",
     };
   } catch {
-    return { summary: raw.slice(0, 300), sentiment: "neutral", action_needed: false };
+    return { summary: raw.slice(0, 300), sentiment: "neutral", action_needed: false, priority: "normal", priority_reason: "" };
   }
 }
 

@@ -73,10 +73,13 @@ async function loadConversations() {
   updateStats(rows);
 }
 
+const PRIORITY_LABEL = { urgent: "URGENT", high: "HIGH", normal: "NORMAL", low: "LOW" };
+
 function updateStats(rows) {
   $("#statTotal").textContent = rows.length;
   $("#statUnread").textContent = rows.filter((r) => r.unread_count > 0).length;
-  $("#statAction").textContent = rows.filter((r) => r.action_needed).length;
+  $("#statUrgent").textContent = rows.filter((r) => r.priority === "urgent").length;
+  $("#statHigh").textContent = rows.filter((r) => r.priority === "high").length;
 }
 
 function renderThreadList() {
@@ -85,7 +88,7 @@ function renderThreadList() {
     return;
   }
   threadList.innerHTML = state.conversations.map((c) => `
-    <div class="thread-card ${c.id === state.activeId ? "active" : ""}" data-id="${c.id}">
+    <div class="thread-card ${c.id === state.activeId ? "active" : ""} ${c.priority ? `priority-${c.priority}` : ""}" data-id="${c.id}">
       <div class="channel-stripe" style="background:${channelColor(c.channel)}"></div>
       <div class="thread-card-body">
         <div class="thread-card-top">
@@ -95,9 +98,9 @@ function renderThreadList() {
         <div class="thread-snippet">${escapeHtml(cleanBody(c.last_message_body))}</div>
         ${c.summary ? `<div class="thread-summary">${escapeHtml(c.summary)}</div>` : ""}
         <div class="thread-tags">
+          ${c.priority ? `<span class="priority-chip ${c.priority}">${PRIORITY_LABEL[c.priority] || c.priority}</span>` : `<span class="priority-chip low">UNTRIAGED</span>`}
           <span class="tag-chip">${c.channel || "?"}</span>
           ${c.assigned_to ? `<span class="tag-chip">${escapeHtml(c.assigned_to)}</span>` : ""}
-          ${c.action_needed ? `<span class="tag-chip alert">needs reply</span>` : ""}
         </div>
       </div>
       ${c.unread_count > 0 ? `<div class="unread-dot"></div>` : ""}
@@ -130,6 +133,18 @@ async function openThread(id) {
   threadDetail.innerHTML = `<div class="empty-state">Loading thread…</div>`;
   const data = await api(`/conversations/${id}`);
   renderThreadDetail(data);
+}
+
+// Moves to the next thread in the current (priority-sorted, by default)
+// list — this is the "work top to bottom" flow the dashboard is built around.
+function openNextThread() {
+  const idx = state.conversations.findIndex((c) => c.id === state.activeId);
+  const next = state.conversations[idx + 1];
+  if (!next) {
+    alert("That's the last thread in this view — nice work.");
+    return;
+  }
+  openThread(next.id);
 }
 
 function renderSuggestions(suggestions) {
@@ -191,12 +206,19 @@ function renderThreadDetail(data) {
   const c = data.conversation;
   threadDetail.innerHTML = `
     <div class="detail-head">
-      <div class="name">${escapeHtml(c.contact_name || "Unknown")}</div>
-      <div class="meta">${c.channel || ""} · ${c.email || c.phone || "no contact info"} ${c.assigned_to ? `· assigned to ${escapeHtml(c.assigned_to)}` : ""}</div>
+      <div class="detail-head-top">
+        <div>
+          <div class="name">${escapeHtml(c.contact_name || "Unknown")}</div>
+          <div class="meta">${c.channel || ""} · ${c.email || c.phone || "no contact info"} ${c.assigned_to ? `· assigned to ${escapeHtml(c.assigned_to)}` : ""}</div>
+        </div>
+        <button class="btn btn-ghost btn-small" id="nextThreadBtn" style="margin:0; width:auto;">Next ▶</button>
+      </div>
     </div>
     ${c.summary ? `
-      <div class="detail-summary-box ${c.action_needed ? "alert" : ""}">
+      <div class="detail-summary-box ${c.priority === "urgent" || c.priority === "high" ? "alert" : ""}">
+        ${c.priority ? `<span class="priority-chip ${c.priority}" style="margin-right:8px;">${PRIORITY_LABEL[c.priority] || c.priority}</span>` : ""}
         <b>${c.sentiment ? c.sentiment.toUpperCase() : ""}</b> — ${escapeHtml(c.summary)}
+        ${c.priority_reason ? `<div style="margin-top:4px; color:var(--muted); font-size:11px;">Why: ${escapeHtml(c.priority_reason)}</div>` : ""}
       </div>` : `
       <div class="detail-summary-box">
         No AI summary yet. <a href="#" id="summarizeLink" style="color:var(--accent-info)">Generate one</a>
@@ -215,6 +237,7 @@ function renderThreadDetail(data) {
     <div class="reply-box">
       <textarea id="replyText" placeholder="Type a reply — sends as ${c.channel || "the thread's channel"}…"></textarea>
       <button class="btn btn-primary" id="sendReplyBtn">Send</button>
+
     </div>
   `;
 
@@ -235,6 +258,9 @@ function renderThreadDetail(data) {
   });
 
   bindSuggestionsBox(c.id);
+
+  const nextBtn = $("#nextThreadBtn");
+  if (nextBtn) nextBtn.addEventListener("click", () => openNextThread());
 
   $("#sendReplyBtn").addEventListener("click", async () => {
     const text = $("#replyText").value.trim();
@@ -290,11 +316,30 @@ function cleanBody(body) {
   });
 });
 
+document.querySelectorAll("#priorityPills .pill").forEach((pill) => {
+  pill.addEventListener("click", () => {
+    document.querySelectorAll("#priorityPills .pill").forEach((p) => p.classList.remove("active"));
+    pill.classList.add("active");
+    state.filters.priority = pill.dataset.priority;
+    loadConversations();
+  });
+});
+document.querySelector('#priorityPills .pill[data-priority=""]').classList.add("active");
+
 $("#clearFilters").addEventListener("click", () => {
   ["fSearch", "fChannel", "fStatus", "fAssignee", "fTag"].forEach((id) => { $(`#${id}`).value = ""; });
-  $("#fSort").value = "newest";
+  $("#fSort").value = "priority";
+  document.querySelectorAll("#priorityPills .pill").forEach((p) => p.classList.remove("active"));
+  document.querySelector('#priorityPills .pill[data-priority=""]').classList.add("active");
   state.filters = {};
   loadConversations();
+});
+
+$("#triageBtn").addEventListener("click", async () => {
+  // Jump straight to the top of the priority queue (whatever's currently filtered/sorted).
+  if (!state.conversations.length) await loadConversations();
+  if (state.conversations.length) openThread(state.conversations[0].id);
+  else alert("No conversations to triage yet — try Sync now first.");
 });
 
 $("#syncBtn").addEventListener("click", async () => {

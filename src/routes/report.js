@@ -33,13 +33,14 @@ async function generateReport(reportId) {
           messages: msgRes.rows,
         });
         await pool.query(
-          `INSERT INTO summaries (conversation_id, summary, sentiment, action_needed, model, summarized_message_count, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6, now())
+          `INSERT INTO summaries (conversation_id, summary, sentiment, action_needed, priority, priority_reason, model, summarized_message_count, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
            ON CONFLICT (conversation_id) DO UPDATE SET
              summary = EXCLUDED.summary, sentiment = EXCLUDED.sentiment,
-             action_needed = EXCLUDED.action_needed, model = EXCLUDED.model,
+             action_needed = EXCLUDED.action_needed, priority = EXCLUDED.priority,
+             priority_reason = EXCLUDED.priority_reason, model = EXCLUDED.model,
              summarized_message_count = EXCLUDED.summarized_message_count, updated_at = now()`,
-          [conv.id, result.summary, result.sentiment, result.action_needed, process.env.AI_PROVIDER, msgRes.rows.length]
+          [conv.id, result.summary, result.sentiment, result.action_needed, result.priority, result.priority_reason, process.env.AI_PROVIDER, msgRes.rows.length]
         );
       } catch (err) {
         console.error(`Failed to summarize conversation ${conv.id}:`, err.message);
